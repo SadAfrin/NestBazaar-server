@@ -100,6 +100,46 @@ async function run() {
             }
         });
 
+        // Check if user exists
+        app.get('/api/users/check', async (req, res) => {
+            try {
+                const { email } = req.query;
+                const user = await usersCollection.findOne({ email });
+                res.status(200).json({ exists: !!user, user });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // GET user role by email
+        app.get('/api/users/role', async (req, res) => {
+            try {
+                const { email } = req.query;
+                const user = await usersCollection.findOne({ email });
+                if (!user) {
+                    return res.status(404).json({ success: false, message: "User not found" });
+                }
+                res.status(200).json({ success: true, role: user.role });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // Update user role
+        app.patch('/api/users/update-role', async (req, res) => {
+            try {
+                const { email, role } = req.body;
+                const result = await usersCollection.updateOne(
+                    { email },
+                    { $set: { role } }
+                );
+                res.status(200).json({ success: true, message: "Role updated!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+
         // ---------------- PRODUCTS ----------------
         // TODO: add product routes here
         // GET all products (latest 8 for featured section)
