@@ -71,9 +71,86 @@ async function run() {
 
         // ---------------- USERS ----------------
         // TODO: add user routes here
+        // Save user after registration
+        app.post('/api/users', async (req, res) => {
+            try {
+                const { name, email, role, location, photo } = req.body;
+                
+                // Check if user already exists
+                const existingUser = await usersCollection.findOne({ email });
+                if (existingUser) {
+                return res.status(200).json({ success: true, message: "User already exists" });
+                }
+
+                const newUser = {
+                name,
+                email,
+                photo: photo || "",
+                role: role || "buyer",
+                location: location || "",
+                phone: "",
+                status: "active",
+                createdAt: new Date(),
+                };
+
+                const result = await usersCollection.insertOne(newUser);
+                res.status(201).json({ success: true, message: "User saved!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
 
         // ---------------- PRODUCTS ----------------
         // TODO: add product routes here
+        // GET all products (latest 8 for featured section)
+        app.get('/api/products', async (req, res) => {
+            try {
+                const products = await productsCollection
+                .find({ status: "available" })
+                .sort({ _id: -1 })
+                .limit(8)
+                .toArray();
+                res.status(200).json({ success: true, data: products });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // GET all products (with search, sort, filter, pagination)
+        app.get('/api/products/all', async (req, res) => {
+            try {
+                const { search, category, condition, sort, page = 1, limit = 9 } = req.query;
+
+                let query = { status: "available" };
+                if (search) query.title = { $regex: search, $options: "i" };
+                if (category) query.category = category;
+                if (condition) query.condition = condition;
+
+                let sortOption = { _id: -1 };
+                if (sort === "price_low") sortOption = { price: 1 };
+                if (sort === "price_high") sortOption = { price: -1 };
+
+                const skip = (parseInt(page) - 1) * parseInt(limit);
+                const total = await productsCollection.countDocuments(query);
+
+                const products = await productsCollection
+                    .find(query)
+                    .sort(sortOption)
+                    .skip(skip)
+                    .limit(parseInt(limit))
+                    .toArray();
+
+                res.status(200).json({
+                    success: true,
+                    data: products,
+                    total,
+                    page: parseInt(page),
+                    totalPages: Math.ceil(total / parseInt(limit)),
+                });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
 
         // ---------------- ORDERS ----------------
         // TODO: add order routes here
