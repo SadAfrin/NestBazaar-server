@@ -173,6 +173,27 @@ async function run() {
         // ---------------- PAYMENTS ----------------
         // TODO: add payment routes here
 
+        // ---------------- Admin ----------------
+        // Admin stats
+        app.get('/api/admin/stats', async (req, res) => {
+            try {
+                const totalUsers = await usersCollection.countDocuments();
+                const totalProducts = await productsCollection.countDocuments();
+                const totalOrders = await ordersCollection.countDocuments();
+                res.status(200).json({
+                success: true,
+                data: {
+                    totalUsers,
+                    totalProducts,
+                    totalOrders,
+                    totalRevenue: 0,
+                }
+                });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         console.log("Connected to MongoDB!");
 
     } finally {}
