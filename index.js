@@ -152,6 +152,21 @@ async function run() {
             }
         });
 
+        // GET single product by ID
+        app.get('/api/products/:id', async (req, res) => {
+            try {
+                const product = await productsCollection.findOne({
+                _id: req.params.id
+                });
+                if (!product) {
+                return res.status(404).json({ success: false, message: "Product not found" });
+                }
+                res.status(200).json({ success: true, data: product });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         // ---------------- ORDERS ----------------
         // TODO: add order routes here
 
