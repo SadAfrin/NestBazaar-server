@@ -187,6 +187,33 @@ async function run() {
         }
         });
 
+        // ------Profile related routes------
+        // GET user by email
+        app.get('/api/users/profile', async (req, res) => {
+        try {
+            const { email } = req.query;
+            const user = await usersCollection.findOne({ email });
+            if (!user) return res.status(404).json({ success: false, message: "User not found" });
+            res.status(200).json({ success: true, data: user });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+        });
+
+        // UPDATE user profile
+        app.patch('/api/users/profile', async (req, res) => {
+        try {
+            const { email, name, phone, location, photo } = req.body;
+            const result = await usersCollection.updateOne(
+            { email },
+            { $set: { name, phone, location, photo } }
+            );
+            res.status(200).json({ success: true, message: "Profile updated!", result });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+        });
+
 
         // ---------------- PRODUCTS ----------------
         // TODO: add product routes here
