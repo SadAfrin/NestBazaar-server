@@ -70,29 +70,25 @@ async function run() {
         });
 
         // ---------------- USERS ----------------
-        // TODO: add user routes here
+
         // Save user after registration
         app.post('/api/users', async (req, res) => {
             try {
                 const { name, email, role, location, photo } = req.body;
-                
-                // Check if user already exists
                 const existingUser = await usersCollection.findOne({ email });
                 if (existingUser) {
-                return res.status(200).json({ success: true, message: "User already exists" });
+                    return res.status(200).json({ success: true, message: "User already exists" });
                 }
-
                 const newUser = {
-                name,
-                email,
-                photo: photo || "",
-                role: role || "buyer",
-                location: location || "",
-                phone: "",
-                status: "active",
-                createdAt: new Date(),
+                    name,
+                    email,
+                    photo: photo || "",
+                    role: role || "buyer",
+                    location: location || "",
+                    phone: "",
+                    status: "active",
+                    createdAt: new Date(),
                 };
-
                 const result = await usersCollection.insertOne(newUser);
                 res.status(201).json({ success: true, message: "User saved!", result });
             } catch (error) {
@@ -131,7 +127,7 @@ async function run() {
                 const { email, role } = req.body;
                 const result = await usersCollection.updateOne(
                     { email },
-                    { $set: { role } }
+                    { $set: { role, updatedAt: new Date() } }
                 );
                 res.status(200).json({ success: true, message: "Role updated!", result });
             } catch (error) {
@@ -139,92 +135,96 @@ async function run() {
             }
         });
 
-        // ---------------- WISHLIST ----------------
-        // GET wishlist by user email
-        // will be used the users collection for saving the wishlist as an array of product IDs in the user document, instead of a separate collection.
-        app.get('/api/wishlist', async (req, res) => {
-        try {
-            const { email } = req.query;
-            const user = await usersCollection.findOne({ email });
-            if (!user) return res.status(404).json({ success: false, message: "User not found" });
-            const wishlist = user.wishlist || [];
-            
-            // Get full product details for each wishlist item
-            const products = await productsCollection
-            .find({ _id: { $in: wishlist } })
-            .toArray();
-            res.status(200).json({ success: true, data: products });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
-        });
-
-        // ADD to wishlist
-        app.post('/api/wishlist', async (req, res) => {
-        try {
-            const { email, productId } = req.body;
-            await usersCollection.updateOne(
-            { email },
-            { $addToSet: { wishlist: productId } }
-            );
-            res.status(200).json({ success: true, message: "Added to wishlist!" });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
-        });
-
-        // REMOVE from wishlist
-        app.delete('/api/wishlist', async (req, res) => {
-        try {
-            const { email, productId } = req.body;
-            await usersCollection.updateOne(
-            { email },
-            { $pull: { wishlist: productId } }
-            );
-            res.status(200).json({ success: true, message: "Removed from wishlist!" });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
-        });
-
-        // ------Profile related routes------
-        // GET user by email
+        // GET user profile by email
         app.get('/api/users/profile', async (req, res) => {
-        try {
-            const { email } = req.query;
-            const user = await usersCollection.findOne({ email });
-            if (!user) return res.status(404).json({ success: false, message: "User not found" });
-            res.status(200).json({ success: true, data: user });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
+            try {
+                const { email } = req.query;
+                const user = await usersCollection.findOne({ email });
+                if (!user) return res.status(404).json({ success: false, message: "User not found" });
+                res.status(200).json({ success: true, data: user });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
         });
 
         // UPDATE user profile
         app.patch('/api/users/profile', async (req, res) => {
-        try {
-            const { email, name, phone, location, photo } = req.body;
-            const result = await usersCollection.updateOne(
-            { email },
-            { $set: { name, phone, location, photo } }
-            );
-            res.status(200).json({ success: true, message: "Profile updated!", result });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
+            try {
+                const { email, name, phone, location, photo } = req.body;
+                const result = await usersCollection.updateOne(
+                    { email },
+                    {
+                        $set: {
+                            name,
+                            phone: phone || "",
+                            location: location || "",
+                            photo: photo || "",
+                            updatedAt: new Date()
+                        }
+                    }
+                );
+                res.status(200).json({ success: true, message: "Profile updated!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
         });
 
+        // ---------------- WISHLIST ----------------
+
+        // GET wishlist by user email
+        app.get('/api/wishlist', async (req, res) => {
+            try {
+                const { email } = req.query;
+                const user = await usersCollection.findOne({ email });
+                if (!user) return res.status(404).json({ success: false, message: "User not found" });
+                const wishlist = user.wishlist || [];
+                const products = await productsCollection
+                    .find({ _id: { $in: wishlist } })
+                    .toArray();
+                res.status(200).json({ success: true, data: products });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // ADD to wishlist
+        app.post('/api/wishlist', async (req, res) => {
+            try {
+                const { email, productId } = req.body;
+                await usersCollection.updateOne(
+                    { email },
+                    { $addToSet: { wishlist: productId } }
+                );
+                res.status(200).json({ success: true, message: "Added to wishlist!" });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // REMOVE from wishlist
+        app.delete('/api/wishlist', async (req, res) => {
+            try {
+                const { email, productId } = req.body;
+                await usersCollection.updateOne(
+                    { email },
+                    { $pull: { wishlist: productId } }
+                );
+                res.status(200).json({ success: true, message: "Removed from wishlist!" });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
 
         // ---------------- PRODUCTS ----------------
-        // TODO: add product routes here
-        // GET all products (latest 8 for featured section)
+
+        // GET featured products (latest 8)
         app.get('/api/products', async (req, res) => {
             try {
                 const products = await productsCollection
-                .find({ status: "available" })
-                .sort({ _id: -1 })
-                .limit(8)
-                .toArray();
+                    .find({ status: "available" })
+                    .sort({ _id: -1 })
+                    .limit(8)
+                    .toArray();
                 res.status(200).json({ success: true, data: products });
             } catch (error) {
                 res.status(500).json({ success: false, error: error.message });
@@ -235,7 +235,6 @@ async function run() {
         app.get('/api/products/all', async (req, res) => {
             try {
                 const { search, category, condition, sort, page = 1, limit = 9 } = req.query;
-
                 let query = { status: "available" };
                 if (search) query.title = { $regex: search, $options: "i" };
                 if (category) query.category = category;
@@ -247,7 +246,6 @@ async function run() {
 
                 const skip = (parseInt(page) - 1) * parseInt(limit);
                 const total = await productsCollection.countDocuments(query);
-
                 const products = await productsCollection
                     .find(query)
                     .sort(sortOption)
@@ -270,11 +268,9 @@ async function run() {
         // GET single product by ID
         app.get('/api/products/:id', async (req, res) => {
             try {
-                const product = await productsCollection.findOne({
-                _id: req.params.id
-                });
+                const product = await productsCollection.findOne({ _id: req.params.id });
                 if (!product) {
-                return res.status(404).json({ success: false, message: "Product not found" });
+                    return res.status(404).json({ success: false, message: "Product not found" });
                 }
                 res.status(200).json({ success: true, data: product });
             } catch (error) {
@@ -282,38 +278,111 @@ async function run() {
             }
         });
 
+        // POST add new product
+        
+        app.post('/api/products/add', async (req, res) => {
+            try {
+                const product = {
+                ...req.body,
+                createdAt: new Date(),
+                };
+                const result = await productsCollection.insertOne(product);
+                res.status(201).json({ success: true, message: "Product added!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         // ---------------- ORDERS ----------------
-        // TODO: add order routes here
+
         // GET orders by buyer email
         app.get('/api/orders', async (req, res) => {
-        try {
-            const { email } = req.query;
-            const query = email ? { "buyerInfo.email": email } : {};
-            const orders = await ordersCollection.find(query).sort({ _id: -1 }).toArray();
-            res.status(200).json({ success: true, data: orders });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
+            try {
+                const { email } = req.query;
+                const query = email ? { "buyerInfo.email": email } : {};
+                const orders = await ordersCollection.find(query).sort({ _id: -1 }).toArray();
+                res.status(200).json({ success: true, data: orders });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // POST create order
+        app.post('/api/orders', async (req, res) => {
+            try {
+                const order = {
+                    ...req.body,
+                    createdAt: new Date(),
+                    orderStatus: "pending",
+                    paymentStatus: "pending",
+                };
+                const result = await ordersCollection.insertOne(order);
+                res.status(201).json({ success: true, message: "Order created!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // PATCH update order status
+        app.patch('/api/orders/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const result = await ordersCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: { ...req.body, updatedAt: new Date() } }
+                );
+                res.status(200).json({ success: true, message: "Order updated!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
         });
 
         // ---------------- PAYMENTS ----------------
-        // TODO: add payment routes here
 
-        // ---------------- Admin ----------------
+        // GET payments by buyer email
+        app.get('/api/payments', async (req, res) => {
+            try {
+                const { email } = req.query;
+                const query = email ? { buyerEmail: email } : {};
+                const payments = await paymentsCollection.find(query).sort({ _id: -1 }).toArray();
+                res.status(200).json({ success: true, data: payments });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // POST save payment
+        app.post('/api/payments', async (req, res) => {
+            try {
+                const payment = {
+                    ...req.body,
+                    createdAt: new Date(),
+                };
+                const result = await paymentsCollection.insertOne(payment);
+                res.status(201).json({ success: true, message: "Payment saved!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // ---------------- ADMIN ----------------
+
         // Admin stats
         app.get('/api/admin/stats', async (req, res) => {
             try {
                 const totalUsers = await usersCollection.countDocuments();
                 const totalProducts = await productsCollection.countDocuments();
                 const totalOrders = await ordersCollection.countDocuments();
+                const payments = await paymentsCollection.find({ paymentStatus: "success" }).toArray();
+                const totalRevenue = payments.reduce((acc, payment) => acc + (payment.amount || 0), 0);
                 res.status(200).json({
-                success: true,
-                data: {
-                    totalUsers,
-                    totalProducts,
-                    totalOrders,
-                    totalRevenue: 0,
-                }
+                    success: true,
+                    data: {
+                        totalUsers,
+                        totalProducts,
+                        totalOrders,
+                        totalRevenue,
+                    }
                 });
             } catch (error) {
                 res.status(500).json({ success: false, error: error.message });
