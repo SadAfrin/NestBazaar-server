@@ -139,6 +139,54 @@ async function run() {
             }
         });
 
+        // ---------------- WISHLIST ----------------
+        // GET wishlist by user email
+        // will be used the users collection for saving the wishlist as an array of product IDs in the user document, instead of a separate collection.
+        app.get('/api/wishlist', async (req, res) => {
+        try {
+            const { email } = req.query;
+            const user = await usersCollection.findOne({ email });
+            if (!user) return res.status(404).json({ success: false, message: "User not found" });
+            const wishlist = user.wishlist || [];
+            
+            // Get full product details for each wishlist item
+            const products = await productsCollection
+            .find({ _id: { $in: wishlist } })
+            .toArray();
+            res.status(200).json({ success: true, data: products });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+        });
+
+        // ADD to wishlist
+        app.post('/api/wishlist', async (req, res) => {
+        try {
+            const { email, productId } = req.body;
+            await usersCollection.updateOne(
+            { email },
+            { $addToSet: { wishlist: productId } }
+            );
+            res.status(200).json({ success: true, message: "Added to wishlist!" });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+        });
+
+        // REMOVE from wishlist
+        app.delete('/api/wishlist', async (req, res) => {
+        try {
+            const { email, productId } = req.body;
+            await usersCollection.updateOne(
+            { email },
+            { $pull: { wishlist: productId } }
+            );
+            res.status(200).json({ success: true, message: "Removed from wishlist!" });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+        });
+
 
         // ---------------- PRODUCTS ----------------
         // TODO: add product routes here
@@ -209,6 +257,17 @@ async function run() {
 
         // ---------------- ORDERS ----------------
         // TODO: add order routes here
+        // GET orders by buyer email
+        app.get('/api/orders', async (req, res) => {
+        try {
+            const { email } = req.query;
+            const query = email ? { "buyerInfo.email": email } : {};
+            const orders = await ordersCollection.find(query).sort({ _id: -1 }).toArray();
+            res.status(200).json({ success: true, data: orders });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+        });
 
         // ---------------- PAYMENTS ----------------
         // TODO: add payment routes here
