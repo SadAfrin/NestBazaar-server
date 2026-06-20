@@ -296,7 +296,12 @@ async function run() {
         // DELETE product by ID ← BEFORE /:id GET
         app.delete('/api/products/:id', async (req, res) => {
             try {
-                const result = await productsCollection.deleteOne({ _id: req.params.id });
+                let result;
+                try {
+                    result = await productsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+                } catch {
+                    result = await productsCollection.deleteOne({ _id: req.params.id });
+                }
                 if (result.deletedCount === 0) {
                     return res.status(404).json({ success: false, message: "Product not found" });
                 }
@@ -308,21 +313,42 @@ async function run() {
 
         // PATCH update product
         app.patch('/api/products/update/:id', async (req, res) => {
-        try {
-            const result = await productsCollection.updateOne(
-            { _id: req.params.id },
-            { $set: { ...req.body, updatedAt: new Date() } }
-            );
-            res.status(200).json({ success: true, message: "Product updated!", result });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
+            try {
+                let result;
+                try {
+                    result = await productsCollection.updateOne(
+                        { _id: new ObjectId(req.params.id) },
+                        { $set: { ...req.body, updatedAt: new Date() } }
+                    );
+                } catch {
+                    result = await productsCollection.updateOne(
+                        { _id: req.params.id },
+                        { $set: { ...req.body, updatedAt: new Date() } }
+                    );
+                }
+                res.status(200).json({ success: true, message: "Product updated!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
         });
 
-        // GET single product by ID ← ALWAYS LAST!
+        // GET single product by ID
         app.get('/api/products/:id', async (req, res) => {
             try {
-                const product = await productsCollection.findOne({ _id: req.params.id });
+                let product;
+
+                // Try ObjectId first (new products added by sellers)
+                try {
+                    product = await productsCollection.findOne({ 
+                        _id: new ObjectId(req.params.id) 
+                    });
+                } catch {
+                    // If not valid ObjectId try string ID (old manual products)
+                    product = await productsCollection.findOne({ 
+                        _id: req.params.id 
+                    });
+                }
+
                 if (!product) {
                     return res.status(404).json({ success: false, message: "Product not found" });
                 }
@@ -361,6 +387,20 @@ async function run() {
             } catch (error) {
                 res.status(500).json({ success: false, error: error.message });
             }
+        });
+
+        // GET orders by seller email
+        app.get('/api/orders/seller', async (req, res) => {
+        try {
+            const { email } = req.query;
+            const orders = await ordersCollection
+            .find({ "sellerInfo.email": email })
+            .sort({ _id: -1 })
+            .toArray();
+            res.status(200).json({ success: true, data: orders });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
         });
 
         // PATCH update order status
