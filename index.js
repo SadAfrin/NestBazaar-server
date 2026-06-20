@@ -293,6 +293,33 @@ async function run() {
             }
         });
 
+        // GET products by seller email
+        app.get('/api/products/seller', async (req, res) => {
+            try {
+                const { email } = req.query;
+                const products = await productsCollection
+                .find({ "sellerInfo.email": email })
+                .sort({ _id: -1 })
+                .toArray();
+                res.status(200).json({ success: true, data: products });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // DELETE product by ID
+        app.delete('/api/products/:id', async (req, res) => {
+            try {
+                const result = await productsCollection.deleteOne({ _id: req.params.id });
+                if (result.deletedCount === 0) {
+                return res.status(404).json({ success: false, message: "Product not found" });
+                }
+                res.status(200).json({ success: true, message: "Product deleted!" });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         // ---------------- ORDERS ----------------
 
         // GET orders by buyer email
