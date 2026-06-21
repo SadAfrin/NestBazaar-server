@@ -469,6 +469,98 @@ async function run() {
             }
         });
 
+        // GET all users
+        app.get('/api/admin/users', async (req, res) => {
+        try {
+            const users = await usersCollection.find().sort({ createdAt: -1 }).toArray();
+            res.status(200).json({ success: true, data: users });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+        });
+
+        // UPDATE user status (block/unblock)
+        app.patch('/api/admin/users/status', async (req, res) => {
+            try {
+                const { email, status } = req.body;
+
+                // Update our users collection
+                await usersCollection.updateOne(
+                { email },
+                { $set: { status, updatedAt: new Date() } }
+                );
+
+                // Update BetterAuth user collection
+                const betterAuthUsers = db.collection("user");
+                await betterAuthUsers.updateOne(
+                { email },
+                { $set: { banned: status === "blocked" } }
+                );
+
+                res.status(200).json({ success: true, message: "User status updated!" });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // DELETE user
+        // DELETE user from both collections
+        app.delete('/api/admin/users', async (req, res) => {
+            try {
+                const { email } = req.query;
+
+                // Delete from our users collection
+                await usersCollection.deleteOne({ email });
+
+                // Delete from BetterAuth user collection
+                const betterAuthUsers = db.collection("user");
+                await betterAuthUsers.deleteOne({ email });
+
+                // Delete from BetterAuth account collection
+                const betterAuthAccounts = db.collection("account");
+                await betterAuthAccounts.deleteMany({ accountId: email });
+
+                res.status(200).json({ success: true, message: "User deleted!" });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // GET all products for admin
+        app.get('/api/admin/products', async (req, res) => {
+            try {
+                const products = await productsCollection
+                .find()
+                .sort({ _id: -1 })
+                .toArray();
+                res.status(200).json({ success: true, data: products });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // UPDATE product status (approve/reject)
+        app.patch('/api/admin/products/status', async (req, res) => {
+            try {
+                const { id, status } = req.body;
+                let result;
+                try {
+                result = await productsCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: { status, updatedAt: new Date() } }
+                );
+                } catch {
+                result = await productsCollection.updateOne(
+                    { _id: id },
+                    { $set: { status, updatedAt: new Date() } }
+                );
+                }
+                res.status(200).json({ success: true, message: "Product status updated!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         console.log("Connected to MongoDB!");
 
     } finally {}
