@@ -561,6 +561,19 @@ async function run() {
             }
         });
 
+        // GET all orders for admin
+        app.get('/api/admin/orders', async (req, res) => {
+        try {
+            const orders = await ordersCollection
+            .find()
+            .sort({ _id: -1 })
+            .toArray();
+            res.status(200).json({ success: true, data: orders });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+        });
+
         console.log("Connected to MongoDB!");
 
     } finally {}
