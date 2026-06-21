@@ -361,6 +361,17 @@ async function run() {
         
         // ---------------- ORDERS ----------------
 
+        // Check if order exists by transactionId
+        app.get('/api/orders/check', async (req, res) => {
+            try {
+                const { transactionId } = req.query;
+                const order = await ordersCollection.findOne({ transactionId });
+                res.status(200).json({ exists: !!order });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         // GET orders by buyer email
         app.get('/api/orders', async (req, res) => {
             try {
@@ -402,6 +413,7 @@ async function run() {
             res.status(500).json({ success: false, error: error.message });
         }
         });
+
 
         // PATCH update order status
         app.patch('/api/orders/:id', async (req, res) => {
