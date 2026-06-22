@@ -586,6 +586,21 @@ async function run() {
         }
         });
 
+        // Update role in BetterAuth user collection 
+        app.patch('/api/admin/users/update-betterauth-role', async (req, res) => {
+            try {
+                const { email, role } = req.body;
+                const betterAuthUsers = db.collection("user");
+                await betterAuthUsers.updateOne(
+                { email },
+                { $set: { role, updatedAt: new Date() } }
+                );
+                res.status(200).json({ success: true, message: "BetterAuth role updated!" });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         console.log("Connected to MongoDB!");
 
     } finally {}
