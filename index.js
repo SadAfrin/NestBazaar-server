@@ -24,6 +24,8 @@ const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers["authorization"];
     const token = authHeader && authHeader.split(" ")[1];
 
+    // console.log("Token received:", token ? "YES" : "NO");
+
     if (!token) {
         return res.status(401).json({ success: false, message: "No token provided." });
     }
