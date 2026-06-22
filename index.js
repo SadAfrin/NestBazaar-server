@@ -395,8 +395,8 @@ async function run() {
                 const order = {
                     ...req.body,
                     createdAt: new Date(),
-                    orderStatus: "pending",
-                    paymentStatus: "pending",
+                    orderStatus: req.body.orderStatus || "pending",
+                    paymentStatus: req.body.paymentStatus || "pending",
                 };
                 const result = await ordersCollection.insertOne(order);
                 res.status(201).json({ success: true, message: "Order created!", result });
