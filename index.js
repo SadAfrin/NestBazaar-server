@@ -57,7 +57,6 @@ async function run() {
     try {
         const db = client.db("nest-bazaar-db");
 
-        // Collections
         const usersCollection = db.collection("users");
         const productsCollection = db.collection("products");
         const ordersCollection = db.collection("orders");
@@ -71,7 +70,7 @@ async function run() {
 
         // ---------------- USERS ----------------
 
-        // Save user after registration
+        // Public — Save user after registration
         app.post('/api/users', async (req, res) => {
             try {
                 const { name, email, role, location, photo } = req.body;
@@ -80,8 +79,7 @@ async function run() {
                     return res.status(200).json({ success: true, message: "User already exists" });
                 }
                 const newUser = {
-                    name,
-                    email,
+                    name, email,
                     photo: photo || "",
                     role: role || "buyer",
                     location: location || "",
@@ -96,7 +94,7 @@ async function run() {
             }
         });
 
-        // Check if user exists
+        // Public — Check if user exists
         app.get('/api/users/check', async (req, res) => {
             try {
                 const { email } = req.query;
@@ -107,7 +105,7 @@ async function run() {
             }
         });
 
-        // GET user role by email
+        // Public — GET user role by email
         app.get('/api/users/role', async (req, res) => {
             try {
                 const { email } = req.query;
@@ -121,7 +119,7 @@ async function run() {
             }
         });
 
-        // Update user role
+        // Public — Update user role
         app.patch('/api/users/update-role', async (req, res) => {
             try {
                 const { email, role } = req.body;
@@ -135,8 +133,8 @@ async function run() {
             }
         });
 
-        // GET user profile by email
-        app.get('/api/users/profile', async (req, res) => {
+        // Protected — GET user profile
+        app.get('/api/users/profile', authenticateToken, async (req, res) => {
             try {
                 const { email } = req.query;
                 const user = await usersCollection.findOne({ email });
@@ -147,8 +145,8 @@ async function run() {
             }
         });
 
-        // UPDATE user profile
-        app.patch('/api/users/profile', async (req, res) => {
+        // Protected — UPDATE user profile
+        app.patch('/api/users/profile', authenticateToken, async (req, res) => {
             try {
                 const { email, name, phone, location, photo } = req.body;
                 const result = await usersCollection.updateOne(
@@ -171,8 +169,8 @@ async function run() {
 
         // ---------------- WISHLIST ----------------
 
-        // GET wishlist by user email
-        app.get('/api/wishlist', async (req, res) => {
+        // Protected — GET wishlist
+        app.get('/api/wishlist', authenticateToken, async (req, res) => {
             try {
                 const { email } = req.query;
                 const user = await usersCollection.findOne({ email });
@@ -187,8 +185,8 @@ async function run() {
             }
         });
 
-        // ADD to wishlist
-        app.post('/api/wishlist', async (req, res) => {
+        // Protected — ADD to wishlist
+        app.post('/api/wishlist', authenticateToken, async (req, res) => {
             try {
                 const { email, productId } = req.body;
                 await usersCollection.updateOne(
@@ -201,8 +199,8 @@ async function run() {
             }
         });
 
-        // REMOVE from wishlist
-        app.delete('/api/wishlist', async (req, res) => {
+        // Protected — REMOVE from wishlist
+        app.delete('/api/wishlist', authenticateToken, async (req, res) => {
             try {
                 const { email, productId } = req.body;
                 await usersCollection.updateOne(
@@ -217,7 +215,7 @@ async function run() {
 
         // ---------------- PRODUCTS ----------------
 
-        // GET featured products (latest 8)
+        // Public — GET featured products
         app.get('/api/products', async (req, res) => {
             try {
                 const products = await productsCollection
@@ -231,7 +229,7 @@ async function run() {
             }
         });
 
-        // GET all products (with search, sort, filter, pagination)
+        // Public — GET all products with search/sort/filter/pagination
         app.get('/api/products/all', async (req, res) => {
             try {
                 const { search, category, condition, sort, page = 1, limit = 9 } = req.query;
@@ -265,8 +263,8 @@ async function run() {
             }
         });
 
-        // GET products by seller email ← BEFORE /:id
-        app.get('/api/products/seller', async (req, res) => {
+        // Protected — GET products by seller email
+        app.get('/api/products/seller', authenticateToken, async (req, res) => {
             try {
                 const { email } = req.query;
                 const products = await productsCollection
@@ -279,8 +277,8 @@ async function run() {
             }
         });
 
-        // POST add new product ← BEFORE /:id
-        app.post('/api/products/add', async (req, res) => {
+        // Protected — POST add new product
+        app.post('/api/products/add', authenticateToken, async (req, res) => {
             try {
                 const product = {
                     ...req.body,
@@ -293,26 +291,8 @@ async function run() {
             }
         });
 
-        // DELETE product by ID ← BEFORE /:id GET
-        app.delete('/api/products/:id', async (req, res) => {
-            try {
-                let result;
-                try {
-                    result = await productsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
-                } catch {
-                    result = await productsCollection.deleteOne({ _id: req.params.id });
-                }
-                if (result.deletedCount === 0) {
-                    return res.status(404).json({ success: false, message: "Product not found" });
-                }
-                res.status(200).json({ success: true, message: "Product deleted!" });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
-
-        // PATCH update product
-        app.patch('/api/products/update/:id', async (req, res) => {
+        // Protected — PATCH update product
+        app.patch('/api/products/update/:id', authenticateToken, async (req, res) => {
             try {
                 let result;
                 try {
@@ -332,23 +312,33 @@ async function run() {
             }
         });
 
-        // GET single product by ID
+        // Protected — DELETE product
+        app.delete('/api/products/:id', authenticateToken, async (req, res) => {
+            try {
+                let result;
+                try {
+                    result = await productsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+                } catch {
+                    result = await productsCollection.deleteOne({ _id: req.params.id });
+                }
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ success: false, message: "Product not found" });
+                }
+                res.status(200).json({ success: true, message: "Product deleted!" });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // Public — GET single product by ID
         app.get('/api/products/:id', async (req, res) => {
             try {
                 let product;
-
-                // Try ObjectId first (new products added by sellers)
                 try {
-                    product = await productsCollection.findOne({ 
-                        _id: new ObjectId(req.params.id) 
-                    });
+                    product = await productsCollection.findOne({ _id: new ObjectId(req.params.id) });
                 } catch {
-                    // If not valid ObjectId try string ID (old manual products)
-                    product = await productsCollection.findOne({ 
-                        _id: req.params.id 
-                    });
+                    product = await productsCollection.findOne({ _id: req.params.id });
                 }
-
                 if (!product) {
                     return res.status(404).json({ success: false, message: "Product not found" });
                 }
@@ -358,11 +348,10 @@ async function run() {
             }
         });
 
-        
         // ---------------- ORDERS ----------------
 
-        // Check if order exists by transactionId
-        app.get('/api/orders/check', async (req, res) => {
+        // Protected — Check if order exists
+        app.get('/api/orders/check', authenticateToken, async (req, res) => {
             try {
                 const { transactionId } = req.query;
                 const order = await ordersCollection.findOne({ transactionId });
@@ -372,8 +361,8 @@ async function run() {
             }
         });
 
-        // GET orders by buyer email
-        app.get('/api/orders', async (req, res) => {
+        // Protected — GET orders by buyer email
+        app.get('/api/orders', authenticateToken, async (req, res) => {
             try {
                 const { email } = req.query;
                 const query = email ? { "buyerInfo.email": email } : {};
@@ -384,8 +373,22 @@ async function run() {
             }
         });
 
-        // POST create order
-        app.post('/api/orders', async (req, res) => {
+        // Protected — GET orders by seller email
+        app.get('/api/orders/seller', authenticateToken, async (req, res) => {
+            try {
+                const { email } = req.query;
+                const orders = await ordersCollection
+                    .find({ "sellerInfo.email": email })
+                    .sort({ _id: -1 })
+                    .toArray();
+                res.status(200).json({ success: true, data: orders });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // Protected — POST create order
+        app.post('/api/orders', authenticateToken, async (req, res) => {
             try {
                 const order = {
                     ...req.body,
@@ -400,29 +403,22 @@ async function run() {
             }
         });
 
-        // GET orders by seller email
-        app.get('/api/orders/seller', async (req, res) => {
-        try {
-            const { email } = req.query;
-            const orders = await ordersCollection
-            .find({ "sellerInfo.email": email })
-            .sort({ _id: -1 })
-            .toArray();
-            res.status(200).json({ success: true, data: orders });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
-        });
-
-
-        // PATCH update order status
-        app.patch('/api/orders/:id', async (req, res) => {
+        // Protected — PATCH update order status
+        app.patch('/api/orders/:id', authenticateToken, async (req, res) => {
             try {
                 const { id } = req.params;
-                const result = await ordersCollection.updateOne(
-                    { _id: new ObjectId(id) },
-                    { $set: { ...req.body, updatedAt: new Date() } }
-                );
+                let result;
+                try {
+                    result = await ordersCollection.updateOne(
+                        { _id: new ObjectId(id) },
+                        { $set: { ...req.body, updatedAt: new Date() } }
+                    );
+                } catch {
+                    result = await ordersCollection.updateOne(
+                        { _id: id },
+                        { $set: { ...req.body, updatedAt: new Date() } }
+                    );
+                }
                 res.status(200).json({ success: true, message: "Order updated!", result });
             } catch (error) {
                 res.status(500).json({ success: false, error: error.message });
@@ -431,8 +427,8 @@ async function run() {
 
         // ---------------- PAYMENTS ----------------
 
-        // GET payments by buyer email
-        app.get('/api/payments', async (req, res) => {
+        // Protected — GET payments
+        app.get('/api/payments', authenticateToken, async (req, res) => {
             try {
                 const { email } = req.query;
                 const query = email ? { buyerEmail: email } : {};
@@ -443,8 +439,8 @@ async function run() {
             }
         });
 
-        // POST save payment
-        app.post('/api/payments', async (req, res) => {
+        // Protected — POST save payment
+        app.post('/api/payments', authenticateToken, async (req, res) => {
             try {
                 const payment = {
                     ...req.body,
@@ -459,8 +455,8 @@ async function run() {
 
         // ---------------- ADMIN ----------------
 
-        // Admin stats
-        app.get('/api/admin/stats', async (req, res) => {
+        // Protected — Admin stats
+        app.get('/api/admin/stats', authenticateToken, async (req, res) => {
             try {
                 const totalUsers = await usersCollection.countDocuments();
                 const totalProducts = await productsCollection.countDocuments();
@@ -469,103 +465,85 @@ async function run() {
                 const totalRevenue = payments.reduce((acc, payment) => acc + (payment.amount || 0), 0);
                 res.status(200).json({
                     success: true,
-                    data: {
-                        totalUsers,
-                        totalProducts,
-                        totalOrders,
-                        totalRevenue,
-                    }
+                    data: { totalUsers, totalProducts, totalOrders, totalRevenue }
                 });
             } catch (error) {
                 res.status(500).json({ success: false, error: error.message });
             }
         });
 
-        // GET all users
-        app.get('/api/admin/users', async (req, res) => {
-        try {
-            const users = await usersCollection.find().sort({ createdAt: -1 }).toArray();
-            res.status(200).json({ success: true, data: users });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
+        // Protected — GET all users
+        app.get('/api/admin/users', authenticateToken, async (req, res) => {
+            try {
+                const users = await usersCollection.find().sort({ createdAt: -1 }).toArray();
+                res.status(200).json({ success: true, data: users });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
         });
 
-        // UPDATE user status (block/unblock)
-        app.patch('/api/admin/users/status', async (req, res) => {
+        // Protected — UPDATE user status
+        app.patch('/api/admin/users/status', authenticateToken, async (req, res) => {
             try {
                 const { email, status } = req.body;
-
-                // Update our users collection
                 await usersCollection.updateOne(
-                { email },
-                { $set: { status, updatedAt: new Date() } }
+                    { email },
+                    { $set: { status, updatedAt: new Date() } }
                 );
-
-                // Update BetterAuth user collection
                 const betterAuthUsers = db.collection("user");
                 await betterAuthUsers.updateOne(
-                { email },
-                { $set: { banned: status === "blocked" } }
+                    { email },
+                    { $set: { banned: status === "blocked" } }
                 );
-
                 res.status(200).json({ success: true, message: "User status updated!" });
             } catch (error) {
                 res.status(500).json({ success: false, error: error.message });
             }
         });
 
-        // DELETE user
-        // DELETE user from both collections
-        app.delete('/api/admin/users', async (req, res) => {
+        // Protected — DELETE user
+        app.delete('/api/admin/users', authenticateToken, async (req, res) => {
             try {
                 const { email } = req.query;
-
-                // Delete from our users collection
                 await usersCollection.deleteOne({ email });
-
-                // Delete from BetterAuth user collection
                 const betterAuthUsers = db.collection("user");
                 await betterAuthUsers.deleteOne({ email });
-
-                // Delete from BetterAuth account collection
                 const betterAuthAccounts = db.collection("account");
                 await betterAuthAccounts.deleteMany({ accountId: email });
-
                 res.status(200).json({ success: true, message: "User deleted!" });
             } catch (error) {
                 res.status(500).json({ success: false, error: error.message });
             }
         });
 
-        // GET all products for admin
-        app.get('/api/admin/products', async (req, res) => {
+        // Protected — GET all products for admin
+        app.get('/api/admin/products', authenticateToken, async (req, res) => {
             try {
                 const products = await productsCollection
-                .find()
-                .sort({ _id: -1 })
-                .toArray();
+                    .find()
+                    .sort({ _id: -1 })
+                    .toArray();
                 res.status(200).json({ success: true, data: products });
             } catch (error) {
                 res.status(500).json({ success: false, error: error.message });
             }
         });
 
-        // UPDATE product status (approve/reject)
-        app.patch('/api/admin/products/status', async (req, res) => {
+        // Protected — UPDATE product status
+        app.patch('/api/admin/products/status', authenticateToken, async (req, res) => {
             try {
                 const { id, status } = req.body;
                 let result;
                 try {
-                result = await productsCollection.updateOne(
-                    { _id: new ObjectId(id) },
-                    { $set: { status, updatedAt: new Date() } }
-                );
+                    result = await productsCollection.updateOne(
+                        { _id: new ObjectId(id) },
+                        { $set: { status, updatedAt: new Date() } }
+                    );
                 } catch {
-                result = await productsCollection.updateOne(
-                    { _id: id },
-                    { $set: { status, updatedAt: new Date() } }
-                );
+                    result = await productsCollection.updateOne(
+                        { _id: id },
+                        { $set: { status, updatedAt: new Date() } }
+                    );
                 }
                 res.status(200).json({ success: true, message: "Product status updated!", result });
             } catch (error) {
@@ -573,27 +551,27 @@ async function run() {
             }
         });
 
-        // GET all orders for admin
-        app.get('/api/admin/orders', async (req, res) => {
-        try {
-            const orders = await ordersCollection
-            .find()
-            .sort({ _id: -1 })
-            .toArray();
-            res.status(200).json({ success: true, data: orders });
-        } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
-        }
+        // Protected — GET all orders for admin
+        app.get('/api/admin/orders', authenticateToken, async (req, res) => {
+            try {
+                const orders = await ordersCollection
+                    .find()
+                    .sort({ _id: -1 })
+                    .toArray();
+                res.status(200).json({ success: true, data: orders });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
         });
 
-        // Update role in BetterAuth user collection 
-        app.patch('/api/admin/users/update-betterauth-role', async (req, res) => {
+        // Protected — Update BetterAuth role
+        app.patch('/api/admin/users/update-betterauth-role', authenticateToken, async (req, res) => {
             try {
                 const { email, role } = req.body;
                 const betterAuthUsers = db.collection("user");
                 await betterAuthUsers.updateOne(
-                { email },
-                { $set: { role, updatedAt: new Date() } }
+                    { email },
+                    { $set: { role, updatedAt: new Date() } }
                 );
                 res.status(200).json({ success: true, message: "BetterAuth role updated!" });
             } catch (error) {
