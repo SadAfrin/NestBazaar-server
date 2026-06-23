@@ -474,6 +474,35 @@ async function run() {
             }
         });
 
+
+        // ---------------- REVIEWS ---------------- 
+        app.get('/api/reviews/:productId', async (req, res) => {
+            try {
+                const { productId } = req.params;
+                const reviews = await reviewsCollection
+                    .find({ productId })
+                    .sort({ _id: -1 })
+                    .toArray();
+                res.status(200).json({ success: true, data: reviews });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // Protected — POST add review (buyer only)
+        app.post('/api/reviews', authenticateToken, authorizeRole("buyer"), async (req, res) => {
+            try {
+                const review = {
+                    ...req.body,
+                    createdAt: new Date(),
+                };
+                const result = await reviewsCollection.insertOne(review);
+                res.status(201).json({ success: true, message: "Review added!", result });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         // ---------------- ADMIN ----------------
 
         // Protected — Admin stats (admin only)
