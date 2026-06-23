@@ -61,6 +61,7 @@ async function run() {
         const productsCollection = db.collection("products");
         const ordersCollection = db.collection("orders");
         const paymentsCollection = db.collection("payments");
+        const reviewsCollection = db.collection("reviews");
 
         // Role-based authorization middleware
         const authorizeRole = (...roles) => {
@@ -492,6 +493,8 @@ async function run() {
         // Protected — POST add review (buyer only)
         app.post('/api/reviews', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
+                console.log("Review body:", req.body);
+                console.log("User from token:", req.user);
                 const review = {
                     ...req.body,
                     createdAt: new Date(),
@@ -499,6 +502,7 @@ async function run() {
                 const result = await reviewsCollection.insertOne(review);
                 res.status(201).json({ success: true, message: "Review added!", result });
             } catch (error) {
+                console.error("Review error:", error);
                 res.status(500).json({ success: false, error: error.message });
             }
         });
