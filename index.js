@@ -24,8 +24,6 @@ const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers["authorization"];
     const token = authHeader && authHeader.split(" ")[1];
 
-    // console.log("Token received:", token ? "YES" : "NO");
-
     if (!token) {
         return res.status(401).json({ success: false, message: "No token provided." });
     }
@@ -62,10 +60,31 @@ async function run() {
         const usersCollection = db.collection("users");
         const productsCollection = db.collection("products");
         const ordersCollection = db.collection("orders");
-        const reviewsCollection = db.collection("reviews");
         const paymentsCollection = db.collection("payments");
 
-        // ✅ Test route
+        // Role-based authorization middleware
+        const authorizeRole = (...roles) => {
+            return async (req, res, next) => {
+                try {
+                    const email = req.user?.email;
+                    if (!email) {
+                        return res.status(403).json({ success: false, message: "Unauthorized!" });
+                    }
+                    const user = await usersCollection.findOne({ email });
+                    if (!user || !roles.includes(user.role)) {
+                        return res.status(403).json({
+                            success: false,
+                            message: `Access denied! Only ${roles.join(" or ")} allowed.`
+                        });
+                    }
+                    next();
+                } catch (error) {
+                    return res.status(500).json({ success: false, error: error.message });
+                }
+            };
+        };
+
+        // Test route
         app.get('/', (req, res) => {
             res.send('NestBazaar Server is Running!');
         });
@@ -135,7 +154,7 @@ async function run() {
             }
         });
 
-        // Protected — GET user profile
+        // Protected — GET user profile (any logged in user)
         app.get('/api/users/profile', authenticateToken, async (req, res) => {
             try {
                 const { email } = req.query;
@@ -147,7 +166,7 @@ async function run() {
             }
         });
 
-        // Protected — UPDATE user profile
+        // Protected — UPDATE user profile (any logged in user)
         app.patch('/api/users/profile', authenticateToken, async (req, res) => {
             try {
                 const { email, name, phone, location, photo } = req.body;
@@ -171,8 +190,8 @@ async function run() {
 
         // ---------------- WISHLIST ----------------
 
-        // Protected — GET wishlist
-        app.get('/api/wishlist', authenticateToken, async (req, res) => {
+        // Protected — GET wishlist (buyer only)
+        app.get('/api/wishlist', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
                 const { email } = req.query;
                 const user = await usersCollection.findOne({ email });
@@ -187,8 +206,8 @@ async function run() {
             }
         });
 
-        // Protected — ADD to wishlist
-        app.post('/api/wishlist', authenticateToken, async (req, res) => {
+        // Protected — ADD to wishlist (buyer only)
+        app.post('/api/wishlist', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
                 const { email, productId } = req.body;
                 await usersCollection.updateOne(
@@ -201,8 +220,8 @@ async function run() {
             }
         });
 
-        // Protected — REMOVE from wishlist
-        app.delete('/api/wishlist', authenticateToken, async (req, res) => {
+        // Protected — REMOVE from wishlist (buyer only)
+        app.delete('/api/wishlist', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
                 const { email, productId } = req.body;
                 await usersCollection.updateOne(
@@ -265,8 +284,8 @@ async function run() {
             }
         });
 
-        // Protected — GET products by seller email
-        app.get('/api/products/seller', authenticateToken, async (req, res) => {
+        // Protected — GET products by seller email (seller only)
+        app.get('/api/products/seller', authenticateToken, authorizeRole("seller"), async (req, res) => {
             try {
                 const { email } = req.query;
                 const products = await productsCollection
@@ -279,8 +298,8 @@ async function run() {
             }
         });
 
-        // Protected — POST add new product
-        app.post('/api/products/add', authenticateToken, async (req, res) => {
+        // Protected — POST add new product (seller only)
+        app.post('/api/products/add', authenticateToken, authorizeRole("seller"), async (req, res) => {
             try {
                 const product = {
                     ...req.body,
@@ -293,8 +312,8 @@ async function run() {
             }
         });
 
-        // Protected — PATCH update product
-        app.patch('/api/products/update/:id', authenticateToken, async (req, res) => {
+        // Protected — PATCH update product (seller only)
+        app.patch('/api/products/update/:id', authenticateToken, authorizeRole("seller"), async (req, res) => {
             try {
                 let result;
                 try {
@@ -314,8 +333,8 @@ async function run() {
             }
         });
 
-        // Protected — DELETE product
-        app.delete('/api/products/:id', authenticateToken, async (req, res) => {
+        // Protected — DELETE product (seller or admin)
+        app.delete('/api/products/:id', authenticateToken, authorizeRole("seller", "admin"), async (req, res) => {
             try {
                 let result;
                 try {
@@ -352,8 +371,8 @@ async function run() {
 
         // ---------------- ORDERS ----------------
 
-        // Protected — Check if order exists
-        app.get('/api/orders/check', authenticateToken, async (req, res) => {
+        // Protected — Check if order exists (buyer only)
+        app.get('/api/orders/check', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
                 const { transactionId } = req.query;
                 const order = await ordersCollection.findOne({ transactionId });
@@ -363,8 +382,8 @@ async function run() {
             }
         });
 
-        // Protected — GET orders by buyer email
-        app.get('/api/orders', authenticateToken, async (req, res) => {
+        // Protected — GET orders by buyer email (buyer only)
+        app.get('/api/orders', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
                 const { email } = req.query;
                 const query = email ? { "buyerInfo.email": email } : {};
@@ -375,8 +394,8 @@ async function run() {
             }
         });
 
-        // Protected — GET orders by seller email
-        app.get('/api/orders/seller', authenticateToken, async (req, res) => {
+        // Protected — GET orders by seller email (seller only)
+        app.get('/api/orders/seller', authenticateToken, authorizeRole("seller"), async (req, res) => {
             try {
                 const { email } = req.query;
                 const orders = await ordersCollection
@@ -389,8 +408,8 @@ async function run() {
             }
         });
 
-        // Protected — POST create order
-        app.post('/api/orders', authenticateToken, async (req, res) => {
+        // Protected — POST create order (buyer only)
+        app.post('/api/orders', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
                 const order = {
                     ...req.body,
@@ -405,8 +424,8 @@ async function run() {
             }
         });
 
-        // Protected — PATCH update order status
-        app.patch('/api/orders/:id', authenticateToken, async (req, res) => {
+        // Protected — PATCH update order status (seller or admin)
+        app.patch('/api/orders/:id', authenticateToken, authorizeRole("seller", "admin"), async (req, res) => {
             try {
                 const { id } = req.params;
                 let result;
@@ -429,8 +448,8 @@ async function run() {
 
         // ---------------- PAYMENTS ----------------
 
-        // Protected — GET payments
-        app.get('/api/payments', authenticateToken, async (req, res) => {
+        // Protected — GET payments (buyer only)
+        app.get('/api/payments', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
                 const { email } = req.query;
                 const query = email ? { buyerEmail: email } : {};
@@ -441,8 +460,8 @@ async function run() {
             }
         });
 
-        // Protected — POST save payment
-        app.post('/api/payments', authenticateToken, async (req, res) => {
+        // Protected — POST save payment (buyer only)
+        app.post('/api/payments', authenticateToken, authorizeRole("buyer"), async (req, res) => {
             try {
                 const payment = {
                     ...req.body,
@@ -457,13 +476,13 @@ async function run() {
 
         // ---------------- ADMIN ----------------
 
-        // Protected — Admin stats
-        app.get('/api/admin/stats', authenticateToken, async (req, res) => {
+        // Protected — Admin stats (admin only)
+        app.get('/api/admin/stats', authenticateToken, authorizeRole("admin"), async (req, res) => {
             try {
                 const totalUsers = await usersCollection.countDocuments();
                 const totalProducts = await productsCollection.countDocuments();
                 const totalOrders = await ordersCollection.countDocuments();
-                const payments = await paymentsCollection.find({ paymentStatus: "success" }).toArray();
+                const payments = await paymentsCollection.find({ paymentStatus: "paid" }).toArray();
                 const totalRevenue = payments.reduce((acc, payment) => acc + (payment.amount || 0), 0);
                 res.status(200).json({
                     success: true,
@@ -474,8 +493,8 @@ async function run() {
             }
         });
 
-        // Protected — GET all users
-        app.get('/api/admin/users', authenticateToken, async (req, res) => {
+        // Protected — GET all users (admin only)
+        app.get('/api/admin/users', authenticateToken, authorizeRole("admin"), async (req, res) => {
             try {
                 const users = await usersCollection.find().sort({ createdAt: -1 }).toArray();
                 res.status(200).json({ success: true, data: users });
@@ -484,8 +503,8 @@ async function run() {
             }
         });
 
-        // Protected — UPDATE user status
-        app.patch('/api/admin/users/status', authenticateToken, async (req, res) => {
+        // Protected — UPDATE user status (admin only)
+        app.patch('/api/admin/users/status', authenticateToken, authorizeRole("admin"), async (req, res) => {
             try {
                 const { email, status } = req.body;
                 await usersCollection.updateOne(
@@ -503,8 +522,8 @@ async function run() {
             }
         });
 
-        // Protected — DELETE user
-        app.delete('/api/admin/users', authenticateToken, async (req, res) => {
+        // Protected — DELETE user (admin only)
+        app.delete('/api/admin/users', authenticateToken, authorizeRole("admin"), async (req, res) => {
             try {
                 const { email } = req.query;
                 await usersCollection.deleteOne({ email });
@@ -518,8 +537,8 @@ async function run() {
             }
         });
 
-        // Protected — GET all products for admin
-        app.get('/api/admin/products', authenticateToken, async (req, res) => {
+        // Protected — GET all products for admin (admin only)
+        app.get('/api/admin/products', authenticateToken, authorizeRole("admin"), async (req, res) => {
             try {
                 const products = await productsCollection
                     .find()
@@ -531,8 +550,8 @@ async function run() {
             }
         });
 
-        // Protected — UPDATE product status
-        app.patch('/api/admin/products/status', authenticateToken, async (req, res) => {
+        // Protected — UPDATE product status (admin only)
+        app.patch('/api/admin/products/status', authenticateToken, authorizeRole("admin"), async (req, res) => {
             try {
                 const { id, status } = req.body;
                 let result;
@@ -553,8 +572,8 @@ async function run() {
             }
         });
 
-        // Protected — GET all orders for admin
-        app.get('/api/admin/orders', authenticateToken, async (req, res) => {
+        // Protected — GET all orders for admin (admin only)
+        app.get('/api/admin/orders', authenticateToken, authorizeRole("admin"), async (req, res) => {
             try {
                 const orders = await ordersCollection
                     .find()
@@ -566,8 +585,8 @@ async function run() {
             }
         });
 
-        // Protected — Update BetterAuth role
-        app.patch('/api/admin/users/update-betterauth-role', authenticateToken, async (req, res) => {
+        // Protected — Update BetterAuth role (admin only)
+        app.patch('/api/admin/users/update-betterauth-role', authenticateToken, authorizeRole("admin"), async (req, res) => {
             try {
                 const { email, role } = req.body;
                 const betterAuthUsers = db.collection("user");
@@ -581,18 +600,18 @@ async function run() {
             }
         });
 
-        // GET all payments for admin
-            app.get('/api/admin/payments', authenticateToken, async (req, res) => {
-                try {
-                    const payments = await paymentsCollection
+        // Protected — GET all payments for admin (admin only)
+        app.get('/api/admin/payments', authenticateToken, authorizeRole("admin"), async (req, res) => {
+            try {
+                const payments = await paymentsCollection
                     .find()
                     .sort({ _id: -1 })
                     .toArray();
-                    res.status(200).json({ success: true, data: payments });
-                } catch (error) {
-                    res.status(500).json({ success: false, error: error.message });
-                }
-            });
+                res.status(200).json({ success: true, data: payments });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
 
         console.log("Connected to MongoDB!");
 
