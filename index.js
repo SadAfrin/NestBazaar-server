@@ -581,6 +581,19 @@ async function run() {
             }
         });
 
+        // GET all payments for admin
+            app.get('/api/admin/payments', authenticateToken, async (req, res) => {
+                try {
+                    const payments = await paymentsCollection
+                    .find()
+                    .sort({ _id: -1 })
+                    .toArray();
+                    res.status(200).json({ success: true, data: payments });
+                } catch (error) {
+                    res.status(500).json({ success: false, error: error.message });
+                }
+            });
+
         console.log("Connected to MongoDB!");
 
     } finally {}
