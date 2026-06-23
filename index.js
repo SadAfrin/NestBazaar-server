@@ -68,6 +68,8 @@ async function run() {
             return async (req, res, next) => {
                 try {
                     const email = req.user?.email;
+                    console.log("authorizeRole - req.user:", JSON.stringify(req.user));
+                    console.log("authorizeRole - email:", email);
                     if (!email) {
                         return res.status(403).json({ success: false, message: "Unauthorized!" });
                     }
